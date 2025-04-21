@@ -1,0 +1,9 @@
+# Ignore model files
+*.h5
+*.keras
+
+# Ignore image datasets
+datasets/
+*.jpg
+*.jpeg
+*.png

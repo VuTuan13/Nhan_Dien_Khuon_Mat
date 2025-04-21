@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Attendance</title>
+</head>
+<body>
+    <h2>Thêm người mới</h2>
+    <form method="POST" action="/add">
+        <input type="text" name="name" placeholder="Nhập tên" required>
+        <button type="submit">Thêm người</button>
+    </form>
+
+    <h2>Điểm danh</h2>
+    <form method="GET" action="/recognize">
+        <button type="submit">Bắt đầu điểm danh</button>
+    </form>
+</body>
+</html>
