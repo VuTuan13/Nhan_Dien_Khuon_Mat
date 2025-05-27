@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Lịch sử chấm công</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 60%;
+            margin: auto;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lịch sử chấm công</h1>
+    {% if records %}
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Họ tên</th>
+            <th>Thời gian</th>
+            <th>Trạng thái</th>
+        </tr>
+        {% for row in records %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.time }}</td>
+                <td>{{ row.status }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+        <p style="text-align: center;">Không có dữ liệu lịch sử.</p>
+    {% endif %}
+</body>
+</html>

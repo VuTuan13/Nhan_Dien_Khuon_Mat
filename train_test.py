@@ -3,9 +3,9 @@ import shutil
 from sklearn.model_selection import train_test_split
 
 # Đường dẫn đến thư mục chứa 50 người đã được lọc
-source_dir = '../datasets/output/selected_actors_100'
-output_train = '../datasets/output/train_1'
-output_test = '../datasets/output/test_1'
+source_dir =r"D:\DoAnTotNghiep\Nhan_Dien_Khuon_Mat/datasets/output/selected_actors_100_images"
+output_train = r"D:\DoAnTotNghiep\Nhan_Dien_Khuon_Mat/datasets/output/train_2"
+output_test = r"D:\DoAnTotNghiep\Nhan_Dien_Khuon_Mat/datasets/output/test_2"
 
 # Tạo thư mục đầu ra nếu chưa có
 os.makedirs(output_train, exist_ok=True)
