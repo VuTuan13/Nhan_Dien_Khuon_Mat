@@ -115,7 +115,7 @@ def recognize_image():
         max_index = np.argmax(similarities)
         best_score = similarities[max_index]
 
-        if best_score > 0.5:
+        if best_score > 0.75:
             name = known_names[max_index]
             save_attendance_log(name, "Check-in")  # Mặc định là Check-in cho ảnh
             flash(f"✅ Khuôn mặt được nhận dạng là: {name} (score={best_score:.2f})", "success")

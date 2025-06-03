@@ -19,7 +19,7 @@ import win32gui
 import win32con
 
 SAVE_DIR = 'embeddings'
-THRESHOLD = 0.8
+THRESHOLD = 0.85
 HISTORY_PATH = 'history.csv'
 USERS_JSON_PATH = os.path.join(SAVE_DIR, 'users.json')
 
@@ -79,9 +79,7 @@ def recognize_faces(status):
     detector = MTCNN()
     names, vectors = load_all_embeddings()
 
-    if len(names) == 0:
-        print("No embeddings found.")
-        return
+    vectors_loaded = len(names) > 0  
 
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -91,7 +89,7 @@ def recognize_faces(status):
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
 
     hwnd = win32gui.FindWindow(None, WINDOW_NAME)
-    win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 165, 130, 650, 500, 0)
+    win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 165, 150, 650, 500, 0)
 
     recognized = set()
 
@@ -101,10 +99,8 @@ def recognize_faces(status):
             break
 
         faces = detector.detect_faces(frame)
-        if len(faces) > 1:
-            cv2.putText(frame, "More than 1 face detected!", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        elif len(faces) == 0:
+
+        if len(faces) == 0:
             cv2.putText(frame, "No face detected!", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         else:
@@ -122,48 +118,31 @@ def recognize_faces(status):
             face_array = np.expand_dims(face_array, axis=0)
 
             emb = model.predict(face_array)[0]
-            sims = cosine_similarity([emb], vectors)[0]
 
-            best_idx = np.argmax(sims)
-            best_score = sims[best_idx]
+            name = "Unknown"
+            color = (0, 0, 255)
+            notification = "Failed. Try again!!!"
 
-            if best_score >= THRESHOLD:
-                name = names[best_idx]
-                notification = "Successful"
-                color = (0, 255, 0)
+            if vectors_loaded:
+                sims = cosine_similarity([emb], vectors)[0]
+                best_idx = np.argmax(sims)
+                best_score = sims[best_idx]
 
-                if name not in recognized:
-                    log_attendance(name, status)
-                    recognized.add(name)
+                if best_score >= THRESHOLD:
+                    name = names[best_idx]
+                    notification = "Successful"
+                    color = (0, 255, 0)
 
-                # Hiển thị thông báo ở đầu webcam
-                cv2.putText(frame, notification, (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-                # Vẽ khung nhận diện
-                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-                cv2.putText(frame, name, (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-                
-                # Hiển thị frame và đợi 2 giây trước khi thoát
-                cv2.imshow(WINDOW_NAME, frame)
-                cv2.waitKey(3000)
-                cap.release()
-                cv2.destroyAllWindows()
-                return
+                    if name not in recognized:
+                        log_attendance(name, status)
+                        recognized.add(name)
 
-            else:
-                notification = "Fail! Try again"
-                color = (0, 0, 255)
-
-                # Hiển thị thông báo ở đầu webcam
-                cv2.putText(frame, notification, (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-                # Vẽ khung nhận diện
-                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-                cv2.putText(frame, "Unknown", (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-                cv2.waitKey(3000)
-                return
+            # Vẽ kết quả
+            cv2.putText(frame, notification, (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+            cv2.putText(frame, name, (x, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
         cv2.imshow(WINDOW_NAME, frame)
         if cv2.waitKey(1) == ord('q'):
@@ -171,6 +150,7 @@ def recognize_faces(status):
 
     cap.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     status = sys.argv[1] if len(sys.argv) > 1 else "Check-in"

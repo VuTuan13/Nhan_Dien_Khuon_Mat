@@ -66,7 +66,7 @@ def capture_images(person_id, name):
         cv2.moveWindow("Capture", 160, 120)
 
         hwnd = win32gui.FindWindow(None, "Capture")
-        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 165, 130, 650, 500, 0)
+        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 165, 150, 650, 500, 0)
 
         count = 0
         frame_count = 0
