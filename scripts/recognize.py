@@ -7,14 +7,13 @@ import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import os
+import csv
+from datetime import datetime
+import json
 import cv2
 import numpy as np
-from mtcnn import MTCNN
-from model.embedding_model import load_embedding_model
-from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.applications.resnet50 import preprocess_input
 from sklearn.metrics.pairwise import cosine_similarity
-
 import win32gui
 import win32con
 
@@ -74,14 +73,15 @@ def load_all_embeddings():
 
     return np.array([]), np.array([])
 
-def recognize_faces(status):
-    model = load_embedding_model()
-    detector = MTCNN()
+def recognize_faces(status, detector, model):
     names, vectors = load_all_embeddings()
-
     vectors_loaded = len(names) > 0  
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Sử dụng CAP_DSHOW để giảm độ trễ
+    if not cap.isOpened():
+        print("Error: Cannot open camera.")
+        return
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -93,65 +93,75 @@ def recognize_faces(status):
 
     recognized = set()
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        faces = detector.detect_faces(frame)
-
-        if len(faces) == 0:
-            cv2.putText(frame, "No face detected!", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        else:
-            face = faces[0]
-            x, y, w, h = face['box']
-            x, y = max(0, x), max(0, y)
-            face_img = frame[y:y+h, x:x+w]
-
-            try:
-                face_img = cv2.resize(face_img, (224, 224))
-            except:
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
                 continue
 
-            face_array = preprocess_input(img_to_array(face_img))
-            face_array = np.expand_dims(face_array, axis=0)
+            faces = detector.detect_faces(frame)
 
-            emb = model.predict(face_array)[0]
+            if len(faces) == 0:
+                cv2.putText(frame, "No face detected!", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            else:
+                face = faces[0]
+                x, y, w, h = face['box']
+                x, y = max(0, x), max(0, y)
+                face_img = frame[y:y+h, x:x+w]
 
-            name = "Unknown"
-            color = (0, 0, 255)
-            notification = "Failed. Try again!!!"
+                try:
+                    face_img = cv2.resize(face_img, (224, 224))
+                except:
+                    continue
 
-            if vectors_loaded:
-                sims = cosine_similarity([emb], vectors)[0]
-                best_idx = np.argmax(sims)
-                best_score = sims[best_idx]
+                from tensorflow.keras.preprocessing.image import img_to_array
+                from tensorflow.keras.applications.resnet50 import preprocess_input
+                face_array = preprocess_input(img_to_array(face_img))
+                face_array = np.expand_dims(face_array, axis=0)
 
-                if best_score >= THRESHOLD:
-                    name = names[best_idx]
-                    notification = "Successful"
-                    color = (0, 255, 0)
+                emb = model.predict(face_array)[0]
 
-                    if name not in recognized:
-                        log_attendance(name, status)
-                        recognized.add(name)
+                name = "Unknown"
+                color = (0, 0, 255)
+                notification = "Failed. Try again!!!"
 
-            # Vẽ kết quả
-            cv2.putText(frame, notification, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(frame, name, (x, y - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+                if vectors_loaded:
+                    sims = cosine_similarity([emb], vectors)[0]
+                    best_idx = np.argmax(sims)
+                    best_score = sims[best_idx]
 
-        cv2.imshow(WINDOW_NAME, frame)
-        if cv2.waitKey(1) == ord('q'):
-            break
+                    if best_score >= THRESHOLD:
+                        name = names[best_idx]
+                        notification = "Successful"
+                        color = (0, 255, 0)
 
-    cap.release()
-    cv2.destroyAllWindows()
+                        if name not in recognized:
+                            log_attendance(name, status)
+                            recognized.add(name)
 
+                # Vẽ kết quả
+                cv2.putText(frame, notification, (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+                cv2.putText(frame, name, (x, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+            cv2.imshow(WINDOW_NAME, frame)
+            if cv2.waitKey(1) == ord('q'):
+                break
+
+    finally:
+        if cap.isOpened():
+            cap.release()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
+    import sys
+    from mtcnn import MTCNN
+    from model.embedding_model import load_embedding_model
+
     status = sys.argv[1] if len(sys.argv) > 1 else "Check-in"
-    recognize_faces(status)
+    detector = MTCNN()
+    model = load_embedding_model()
+    recognize_faces(status, detector, model)

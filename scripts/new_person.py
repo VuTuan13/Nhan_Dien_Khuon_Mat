@@ -1,31 +1,25 @@
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import cv2
 import numpy as np
-from mtcnn import MTCNN
-from model.embedding_model import load_embedding_model
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications.resnet50 import preprocess_input
-import win32gui
 import json
+import win32gui
+import sys
 import win32con
 
-# Khởi tạo mô hình một lần duy nhất
-detector = MTCNN()
-model = load_embedding_model()
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 SAVE_DIR = 'embeddings'
 CAPTURED_IMAGES_BASE_DIR = 'captured_images'
-NUM_IMAGES = 100
+NUM_IMAGES = 100  
 IMG_SIZE = (224, 224)
 USERS_JSON_PATH = os.path.join(SAVE_DIR, 'users.json')
 
 if not os.path.exists(CAPTURED_IMAGES_BASE_DIR):
     os.makedirs(CAPTURED_IMAGES_BASE_DIR)
 
-def capture_images(person_id, name):
+def capture_images(person_id, name, detector, model):
     try:
         person_dir = os.path.join(CAPTURED_IMAGES_BASE_DIR, f"{person_id}_{name}")
         
@@ -35,27 +29,23 @@ def capture_images(person_id, name):
                 with open(USERS_JSON_PATH, 'r', encoding='utf-8') as f:
                     users = json.load(f)
                     if any(user['id'] == person_id for user in users):
-                        print(f"Error: Person with ID '{person_id}' already exists in users.json.")
-                        return
+                        raise Exception(f"Person with ID '{person_id}' already exists in users.json.")
             except json.JSONDecodeError:
                 print(f"Error: {USERS_JSON_PATH} is corrupted.")
                 return
             except Exception as e:
-                print(f"Error: Failed to read {USERS_JSON_PATH}: {e}")
-                return
+                raise e
 
         # Kiểm tra trùng lặp thư mục
         if os.path.exists(person_dir):
-            print(f"Error: Person with ID '{person_id}' and name '{name}' already exists in captured images.")
-            return
+            raise Exception(f"Person with ID '{person_id}' and name '{name}' already exists in captured images.")
 
         embeddings = []
         os.makedirs(person_dir)
 
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Sử dụng CAP_DSHOW để giảm độ trễ
         if not cap.isOpened():
-            print("Error: Cannot open camera.")
-            return
+            raise Exception("Cannot open camera.")
         
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -78,8 +68,7 @@ def capture_images(person_id, name):
             if not ret:
                 continue
             
-            # Chỉ phát hiện khuôn mặt mỗi 5 khung hình
-            if frame_count % 5 == 0 or last_face_box is None:
+            if frame_count % 20 == 0 or last_face_box is None:
                 faces = detector.detect_faces(frame)
             else:
                 faces = [last_face_box] if last_face_box else []
@@ -111,15 +100,14 @@ def capture_images(person_id, name):
             
             frame_count += 1
 
-        cap.release()
-        cv2.destroyAllWindows()
-
         if embeddings:
             save_embedding(person_id, name, embeddings)
         else:
-            print("Error: No embeddings captured.")
+            raise Exception("No embeddings captured.")
+
     except Exception as e:
         print(f"Error: Failed to capture images: {e}")
+        raise e
     finally:
         if 'cap' in locals() and cap.isOpened():
             cap.release()
@@ -163,6 +151,12 @@ def save_embedding(person_id, name, embeddings):
         print(f"Error: Failed to save user info to {USERS_JSON_PATH}: {e}")
 
 if __name__ == "__main__":
+    import sys
+    from mtcnn import MTCNN
+    from model.embedding_model import load_embedding_model
+
     person_id = sys.argv[1]
     person_name = sys.argv[2]
-    capture_images(person_id, person_name)
+    detector = MTCNN()
+    model = load_embedding_model()
+    capture_images(person_id, person_name, detector, model)

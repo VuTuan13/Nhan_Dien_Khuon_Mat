@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-import subprocess
 import numpy as np
 import cv2
 from PIL import Image
@@ -12,12 +11,17 @@ from datetime import datetime
 import os
 import pandas as pd
 import json
+# Thêm import cho các hàm từ new_person.py và recognize.py
+from scripts.new_person import capture_images
+from scripts.recognize import recognize_faces
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
+# Khởi tạo mô hình một lần duy nhất
 detector = MTCNN()
 embedding_model = load_embedding_model()
+
 known_vectors = np.load('embeddings/vectors.npy')
 known_names = np.load('embeddings/names.npy')
 LOG_FILE = 'attendance_log.csv'
@@ -69,21 +73,24 @@ def show_history():
 def add_person():
     person_id = request.form.get('id')
     name = request.form.get('name')
-    result = subprocess.run(["python", "scripts/new_person.py", person_id, name], capture_output=True, text=True)
-    if "Error" in result.stdout:
-        flash("Error: Person with this ID already exists.", 'error')
-    else:
+    try:
+        # Gọi hàm capture_images trực tiếp, truyền detector và embedding_model
+        capture_images(person_id, name, detector, embedding_model)
         flash(f"Successfully added person {name} with ID {person_id}.", 'success')
+    except Exception as e:
+        flash(f"Error: {str(e)}", 'error')
     return redirect(url_for('index'))
 
 @app.route('/check_in', methods=['GET'])
 def check_in():
-    subprocess.run(["python", "scripts/recognize.py", "Check-in"])
+    # Gọi hàm recognize_faces trực tiếp, truyền detector và embedding_model
+    recognize_faces("Check-in", detector, embedding_model)
     return redirect("/")
 
 @app.route('/check_out', methods=['GET'])
 def check_out():
-    subprocess.run(["python", "scripts/recognize.py", "Check-out"])
+    # Gọi hàm recognize_faces trực tiếp, truyền detector và embedding_model
+    recognize_faces("Check-out", detector, embedding_model)
     return redirect("/")
 
 @app.route('/recognize_image', methods=['POST'])
